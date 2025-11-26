@@ -5,7 +5,10 @@ An interactive webcam application that creates transparent water ripple effects 
 ## Features
 
 - **Real-time hand tracking** - Detects up to 2 hands simultaneously using MediaPipe
-- **Transparent ripple effects** - Creates water-like ripples that distort the camera view
+- **3D water ripple effects** - Creates realistic three-dimensional water ripples with depth
+- **Advanced lighting** - Specular highlights, shadows, and Fresnel effects for realism
+- **Normal mapping** - Dynamic surface normals calculated from wave displacement
+- **Chromatic aberration** - Subtle color separation for authentic light refraction
 - **Physics-based simulation** - Ripples spread naturally with realistic wave propagation
 - **WebGL-powered rendering** - Smooth, GPU-accelerated visual effects
 - **Movement-based activation** - Ripples appear when hands move in front of the camera
@@ -27,13 +30,32 @@ An interactive webcam application that creates transparent water ripple effects 
 - **Graphics**: WebGL with custom fragment shaders
 - **Ripple Physics**: Time-based wave propagation with exponential decay
 
-### Ripple Effect
+### 3D Ripple Effect
 
-The ripple effect is achieved through:
-- **Displacement mapping**: UV coordinates are offset based on ripple waves
-- **Wave simulation**: Sinusoidal waves with frequency and amplitude control
-- **Exponential decay**: Ripples fade naturally over time and distance
-- **Highlight rendering**: Subtle light effects at ripple edges for visual clarity
+The three-dimensional ripple effect is achieved through advanced shader techniques:
+
+**Surface Geometry:**
+- **Normal mapping**: Surface normals calculated from wave height gradients
+- **Wave height fields**: Combined displacement from multiple ripple sources
+- **Displacement mapping**: UV coordinates offset based on ripple waves
+
+**Lighting & Shading:**
+- **Blinn-Phong shading**: Realistic diffuse and specular lighting
+- **Directional lighting**: Virtual light source from top-right
+- **Specular highlights**: Bright reflections on wave crests
+- **Shadow/depth**: Darker troughs create depth perception
+- **Fresnel effect**: Angle-dependent reflections for water-like appearance
+
+**Visual Realism:**
+- **Chromatic aberration**: RGB color channel separation for lens-like refraction
+- **Edge highlights**: Bright blue-white glow at wave peaks
+- **Edge glow**: Soft luminance around ripple rings
+- **Refraction tint**: Subtle blue coloring in displaced areas
+
+**Physics:**
+- **Sinusoidal waves**: Natural wave propagation pattern
+- **Exponential decay**: Ripples fade over time and distance
+- **Wave interference**: Multiple ripples combine realistically
 
 ## Usage
 

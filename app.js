@@ -75,9 +75,9 @@ class RippleApp {
             }
         `;
 
-        // Fragment shader with ripple distortion effect
+        // Fragment shader with enhanced 3D ripple distortion effect
         const fragmentShaderSource = `
-            precision mediump float;
+            precision highp float;
 
             uniform sampler2D u_texture;
             uniform vec2 u_resolution;
@@ -87,11 +87,15 @@ class RippleApp {
 
             varying vec2 v_texCoord;
 
-            void main() {
-                vec2 uv = v_texCoord;
-                vec2 displacement = vec2(0.0);
+            // Light direction (from top-right)
+            const vec3 lightDir = normalize(vec3(0.5, -0.5, 1.0));
+            const float PI = 3.14159265359;
 
-                // Apply ripple effects
+            // Calculate wave height at a given position
+            float getWaveHeight(vec2 uv, out vec2 totalDisplacement) {
+                float height = 0.0;
+                totalDisplacement = vec2(0.0);
+
                 for (int i = 0; i < ${this.maxRipples}; i++) {
                     if (i >= u_rippleCount) break;
 
@@ -102,34 +106,99 @@ class RippleApp {
                     vec2 diff = uv - ripplePos;
                     float dist = length(diff * u_resolution / u_resolution.y);
 
-                    // Ripple wave parameters
+                    // Ripple parameters
                     float rippleSpeed = 0.8;
                     float rippleFrequency = 15.0;
                     float rippleRadius = rippleTime * rippleSpeed;
 
-                    // Calculate wave
-                    if (dist < rippleRadius && rippleRadius > 0.0) {
-                        float wave = sin((dist - rippleRadius) * rippleFrequency) *
-                                    exp(-rippleRadius * 2.0) *
-                                    exp(-abs(dist - rippleRadius) * 8.0);
+                    // Calculate wave amplitude with decay
+                    float amplitude = exp(-rippleRadius * 2.0) * exp(-abs(dist - rippleRadius) * 8.0);
 
-                        // Create displacement
+                    if (dist < rippleRadius + 0.3 && rippleRadius > 0.0) {
+                        // Wave calculation
+                        float wave = sin((dist - rippleRadius) * rippleFrequency) * amplitude;
+                        height += wave;
+
+                        // Create displacement with stronger effect
                         vec2 direction = normalize(diff);
-                        displacement += direction * wave * 0.03;
+                        totalDisplacement += direction * wave * 0.05;
                     }
                 }
 
-                // Apply displacement to create distortion
-                vec2 distortedUV = uv + displacement;
+                return height;
+            }
 
-                // Clamp to prevent sampling outside texture
-                distortedUV = clamp(distortedUV, 0.0, 1.0);
+            // Calculate normal map from wave displacement
+            vec3 calculateNormal(vec2 uv, float height) {
+                float delta = 0.01;
+                vec2 dummy;
 
-                // Sample the webcam texture
-                vec4 color = texture2D(u_texture, distortedUV);
+                // Sample neighboring heights
+                float heightL = getWaveHeight(uv + vec2(-delta, 0.0), dummy);
+                float heightR = getWaveHeight(uv + vec2(delta, 0.0), dummy);
+                float heightD = getWaveHeight(uv + vec2(0.0, -delta), dummy);
+                float heightU = getWaveHeight(uv + vec2(0.0, delta), dummy);
 
-                // Add subtle ripple highlights
-                float highlight = 0.0;
+                // Calculate tangent vectors
+                vec3 tangentX = vec3(delta * 2.0, 0.0, heightR - heightL);
+                vec3 tangentY = vec3(0.0, delta * 2.0, heightU - heightD);
+
+                // Cross product to get normal
+                vec3 normal = normalize(cross(tangentX, tangentY));
+                return normal;
+            }
+
+            void main() {
+                vec2 uv = v_texCoord;
+                vec2 displacement = vec2(0.0);
+
+                // Get wave height and displacement
+                float waveHeight = getWaveHeight(uv, displacement);
+
+                // Calculate normal for lighting
+                vec3 normal = calculateNormal(uv, waveHeight);
+
+                // Apply chromatic aberration for realism
+                float aberrationStrength = length(displacement) * 2.0;
+                vec2 distortedUV_R = clamp(uv + displacement * 1.05, 0.0, 1.0);
+                vec2 distortedUV_G = clamp(uv + displacement, 0.0, 1.0);
+                vec2 distortedUV_B = clamp(uv + displacement * 0.95, 0.0, 1.0);
+
+                // Sample texture with chromatic aberration
+                float r = texture2D(u_texture, distortedUV_R).r;
+                float g = texture2D(u_texture, distortedUV_G).g;
+                float b = texture2D(u_texture, distortedUV_B).b;
+                vec4 color = vec4(r, g, b, 1.0);
+
+                // Calculate lighting
+                float diffuse = max(dot(normal, lightDir), 0.0);
+                float ambient = 0.3;
+
+                // Calculate specular highlights (Blinn-Phong)
+                vec3 viewDir = vec3(0.0, 0.0, 1.0);
+                vec3 halfDir = normalize(lightDir + viewDir);
+                float specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
+
+                // Fresnel effect - more reflection at grazing angles
+                float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
+
+                // Shadow/depth effect - darken troughs
+                float depth = smoothstep(-0.3, 0.0, waveHeight);
+                float shadow = mix(0.7, 1.0, depth);
+
+                // Apply lighting to color
+                color.rgb *= (ambient + diffuse * 0.7) * shadow;
+
+                // Add specular highlights
+                color.rgb += specular * vec3(1.0, 1.0, 1.0) * 0.6;
+
+                // Add fresnel glow at edges
+                color.rgb += fresnel * vec3(0.3, 0.4, 0.5) * 0.3;
+
+                // Enhanced ripple edge highlights with 3D effect
+                float edgeHighlight = 0.0;
+                float edgeGlow = 0.0;
+
                 for (int i = 0; i < ${this.maxRipples}; i++) {
                     if (i >= u_rippleCount) break;
 
@@ -141,14 +210,25 @@ class RippleApp {
                     float dist = length(diff * u_resolution / u_resolution.y);
                     float rippleRadius = rippleTime * 0.8;
 
-                    if (abs(dist - rippleRadius) < 0.015 && rippleRadius < 0.5) {
-                        highlight += (0.015 - abs(dist - rippleRadius)) *
-                                    exp(-rippleRadius * 3.0) * 20.0;
+                    // Sharp highlight at wave crest
+                    float edgeDist = abs(dist - rippleRadius);
+                    if (edgeDist < 0.02 && rippleRadius < 0.6) {
+                        float intensity = (0.02 - edgeDist) * exp(-rippleRadius * 2.5);
+                        edgeHighlight += intensity * 25.0;
+
+                        // Add glow around the edge
+                        if (edgeDist < 0.05) {
+                            edgeGlow += (0.05 - edgeDist) * exp(-rippleRadius * 2.0) * 10.0;
+                        }
                     }
                 }
 
-                // Add highlight to create transparent ripple effect
-                color.rgb += vec3(highlight * 0.3, highlight * 0.4, highlight * 0.5);
+                // Apply edge highlights with blue-white color for water effect
+                color.rgb += vec3(edgeHighlight * 0.4, edgeHighlight * 0.6, edgeHighlight * 0.8);
+                color.rgb += vec3(edgeGlow * 0.15, edgeGlow * 0.2, edgeGlow * 0.3);
+
+                // Add subtle refraction tint
+                color.rgb += vec3(0.0, 0.02, 0.04) * abs(waveHeight) * 2.0;
 
                 gl_FragColor = color;
             }
