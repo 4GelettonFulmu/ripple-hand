@@ -106,22 +106,22 @@ class RippleApp {
                     vec2 diff = uv - ripplePos;
                     float dist = length(diff * u_resolution / u_resolution.y);
 
-                    // Ripple parameters
-                    float rippleSpeed = 0.8;
+                    // Ripple parameters (reduced size and spread)
+                    float rippleSpeed = 0.5;
                     float rippleFrequency = 15.0;
                     float rippleRadius = rippleTime * rippleSpeed;
 
                     // Calculate wave amplitude with decay
-                    float amplitude = exp(-rippleRadius * 2.0) * exp(-abs(dist - rippleRadius) * 8.0);
+                    float amplitude = exp(-rippleRadius * 3.0) * exp(-abs(dist - rippleRadius) * 10.0);
 
-                    if (dist < rippleRadius + 0.3 && rippleRadius > 0.0) {
+                    if (dist < rippleRadius + 0.2 && rippleRadius > 0.0) {
                         // Wave calculation
                         float wave = sin((dist - rippleRadius) * rippleFrequency) * amplitude;
                         height += wave;
 
-                        // Create displacement with stronger effect
+                        // Create displacement with reduced effect for smaller ripples
                         vec2 direction = normalize(diff);
-                        totalDisplacement += direction * wave * 0.05;
+                        totalDisplacement += direction * wave * 0.02;
                     }
                 }
 
@@ -170,32 +170,32 @@ class RippleApp {
                 float b = texture2D(u_texture, distortedUV_B).b;
                 vec4 color = vec4(r, g, b, 1.0);
 
-                // Calculate lighting
+                // Calculate lighting (reduced intensity for more transparency)
                 float diffuse = max(dot(normal, lightDir), 0.0);
-                float ambient = 0.3;
+                float ambient = 0.5;
 
-                // Calculate specular highlights (Blinn-Phong)
+                // Calculate specular highlights (Blinn-Phong, reduced)
                 vec3 viewDir = vec3(0.0, 0.0, 1.0);
                 vec3 halfDir = normalize(lightDir + viewDir);
                 float specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
 
-                // Fresnel effect - more reflection at grazing angles
+                // Fresnel effect - more reflection at grazing angles (reduced)
                 float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
 
-                // Shadow/depth effect - darken troughs
+                // Shadow/depth effect - darken troughs (subtle)
                 float depth = smoothstep(-0.3, 0.0, waveHeight);
-                float shadow = mix(0.7, 1.0, depth);
+                float shadow = mix(0.85, 1.0, depth);
 
-                // Apply lighting to color
-                color.rgb *= (ambient + diffuse * 0.7) * shadow;
+                // Apply lighting to color (subtle effect)
+                color.rgb *= (ambient + diffuse * 0.4) * shadow;
 
-                // Add specular highlights
-                color.rgb += specular * vec3(1.0, 1.0, 1.0) * 0.6;
+                // Add specular highlights (reduced intensity)
+                color.rgb += specular * vec3(1.0, 1.0, 1.0) * 0.25;
 
-                // Add fresnel glow at edges
-                color.rgb += fresnel * vec3(0.3, 0.4, 0.5) * 0.3;
+                // Add fresnel glow at edges (reduced)
+                color.rgb += fresnel * vec3(0.3, 0.4, 0.5) * 0.15;
 
-                // Enhanced ripple edge highlights with 3D effect
+                // Enhanced ripple edge highlights with 3D effect (reduced transparency)
                 float edgeHighlight = 0.0;
                 float edgeGlow = 0.0;
 
@@ -208,27 +208,27 @@ class RippleApp {
 
                     vec2 diff = uv - ripplePos;
                     float dist = length(diff * u_resolution / u_resolution.y);
-                    float rippleRadius = rippleTime * 0.8;
+                    float rippleRadius = rippleTime * 0.5;
 
-                    // Sharp highlight at wave crest
+                    // Sharp highlight at wave crest (reduced)
                     float edgeDist = abs(dist - rippleRadius);
-                    if (edgeDist < 0.02 && rippleRadius < 0.6) {
-                        float intensity = (0.02 - edgeDist) * exp(-rippleRadius * 2.5);
-                        edgeHighlight += intensity * 25.0;
+                    if (edgeDist < 0.015 && rippleRadius < 0.4) {
+                        float intensity = (0.015 - edgeDist) * exp(-rippleRadius * 3.0);
+                        edgeHighlight += intensity * 15.0;
 
-                        // Add glow around the edge
-                        if (edgeDist < 0.05) {
-                            edgeGlow += (0.05 - edgeDist) * exp(-rippleRadius * 2.0) * 10.0;
+                        // Add glow around the edge (subtle)
+                        if (edgeDist < 0.03) {
+                            edgeGlow += (0.03 - edgeDist) * exp(-rippleRadius * 2.5) * 5.0;
                         }
                     }
                 }
 
-                // Apply edge highlights with blue-white color for water effect
-                color.rgb += vec3(edgeHighlight * 0.4, edgeHighlight * 0.6, edgeHighlight * 0.8);
-                color.rgb += vec3(edgeGlow * 0.15, edgeGlow * 0.2, edgeGlow * 0.3);
+                // Apply edge highlights with blue-white color for water effect (more transparent)
+                color.rgb += vec3(edgeHighlight * 0.2, edgeHighlight * 0.3, edgeHighlight * 0.4);
+                color.rgb += vec3(edgeGlow * 0.08, edgeGlow * 0.1, edgeGlow * 0.15);
 
-                // Add subtle refraction tint
-                color.rgb += vec3(0.0, 0.02, 0.04) * abs(waveHeight) * 2.0;
+                // Add subtle refraction tint (reduced)
+                color.rgb += vec3(0.0, 0.01, 0.02) * abs(waveHeight) * 1.5;
 
                 gl_FragColor = color;
             }
@@ -315,8 +315,8 @@ class RippleApp {
         hands.setOptions({
             maxNumHands: 2,
             modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
         });
 
         hands.onResults((results) => this.onHandsDetected(results));
@@ -361,16 +361,19 @@ class RippleApp {
                     const dy = currentPos.y - lastPos.y;
                     const movement = Math.sqrt(dx * dx + dy * dy);
 
-                    // Create ripples on movement (flip x-coordinate to match un-mirrored video)
-                    if (movement > 0.005) {
+                    // Create ripples on movement (more sensitive, flip x-coordinate to match un-mirrored video)
+                    if (movement > 0.002) {
                         this.addRipple(1 - palmCenter.x, 1 - palmCenter.y);
 
                         // Add ripples at finger tips for more effect
-                        if (movement > 0.01) {
+                        if (movement > 0.005) {
                             this.addRipple(1 - middleFingerTip.x, 1 - middleFingerTip.y);
                             this.addRipple(1 - indexFingerTip.x, 1 - indexFingerTip.y);
                         }
                     }
+                } else {
+                    // First detection - create initial ripple
+                    this.addRipple(1 - palmCenter.x, 1 - palmCenter.y);
                 }
 
                 this.lastHandPositions.set(handId, currentPos);
