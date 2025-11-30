@@ -250,12 +250,12 @@ class RippleApp {
 
         gl.useProgram(this.program);
 
-        // Create vertex buffer
+        // Create vertex buffer (texture coordinates flipped horizontally to remove mirror effect)
         const positions = new Float32Array([
-            -1, -1,  0, 1,
-             1, -1,  1, 1,
-            -1,  1,  0, 0,
-             1,  1,  1, 0
+            -1, -1,  1, 1,
+             1, -1,  0, 1,
+            -1,  1,  1, 0,
+             1,  1,  0, 0
         ]);
 
         const buffer = gl.createBuffer();
@@ -361,14 +361,14 @@ class RippleApp {
                     const dy = currentPos.y - lastPos.y;
                     const movement = Math.sqrt(dx * dx + dy * dy);
 
-                    // Create ripples on movement
+                    // Create ripples on movement (flip x-coordinate to match un-mirrored video)
                     if (movement > 0.005) {
-                        this.addRipple(palmCenter.x, 1 - palmCenter.y);
+                        this.addRipple(1 - palmCenter.x, 1 - palmCenter.y);
 
                         // Add ripples at finger tips for more effect
                         if (movement > 0.01) {
-                            this.addRipple(middleFingerTip.x, 1 - middleFingerTip.y);
-                            this.addRipple(indexFingerTip.x, 1 - indexFingerTip.y);
+                            this.addRipple(1 - middleFingerTip.x, 1 - middleFingerTip.y);
+                            this.addRipple(1 - indexFingerTip.x, 1 - indexFingerTip.y);
                         }
                     }
                 }
